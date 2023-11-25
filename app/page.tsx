@@ -1,7 +1,91 @@
+'use client';
+
+import { useState, useEffect } from "react"
 import Image from "next/image";
 import Link from "next/link";
+// import { useUser } from '@auth0/nextjs-auth0/client';
+import { useAuth0 } from '@auth0/auth0-react';
+
+import {
+  useQuery,
+} from 'react-query'
+import axios from "axios";
 
 export default function Home() {
+  const { isLoading, isAuthenticated, error, user, loginWithRedirect, logout, getAccessTokenSilently, getAccessTokenWithPopup } =
+    useAuth0();
+
+  // const queryResult = useQuery('fetch-demo', async () => {
+  //   return axios.get("/api/messages/protected")
+  // })
+
+  const [userMetadata, setUserMetadata] = useState(null);
+
+  useEffect(() => {
+    const getUserMetadata = async () => {
+      try {
+        const accessToken = await getAccessTokenSilently({
+          authorizationParams: {
+            audience: process.env.NEXT_PUBLIC_AUTH0_AUDIENCE,
+            scope: "read:current_user",
+          },
+        });
+
+        const userDetailsByIdUrl = `/api/messages/protected`;
+        const metadataResponse = await fetch(userDetailsByIdUrl, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        const { user_metadata } = await metadataResponse.json();
+
+        setUserMetadata(user_metadata);
+      } catch (e) {
+        console.log(e.message);
+        const accessToken = await getAccessTokenWithPopup({
+          authorizationParams: {
+            audience: process.env.NEXT_PUBLIC_AUTH0_AUDIENCE,
+            scope: "read:current_user",
+          },
+        })
+
+        const userDetailsByIdUrl = `/api/messages/protected`;
+        const metadataResponse = await fetch(userDetailsByIdUrl, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        console.log(metadataResponse)
+      }
+    };
+
+    if(!user) return
+    getUserMetadata();
+  }, [getAccessTokenSilently, user?.sub]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  if (error) {
+    return <div>Oops... {error.message}</div>;
+  }
+
+  if (isAuthenticated) {
+    return (
+      <div>
+        Hello {user.name}{' '}
+        <button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
+          Log out
+        </button>
+      </div>
+    );
+  } else {
+    return <button onClick={() => loginWithRedirect()}>Log in</button>;
+  }
+
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
       <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
